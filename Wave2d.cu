@@ -12,16 +12,14 @@ __global__ void Wcalculate(float *u0,float *u1,float *u2,float C2,int nx,int ny)
   int i=blockDim.x*blockIdx.x+threadIdx.x;
   int j=blockDim.y*blockIdx.y+threadIdx.y;
   if( i>0 && i<nx-1 && j>0 && j<ny-1){
-    u2[i+j*nx] = (2.0f-4.0f*C2)*u1[i+j*nx] - u0[i+j*nx] 
-                 + C2*(u1[(i+1)+j*nx]+u1[(i-1)+j*nx] 
-                 + u1[i+(j+1)*nx]+u1[i+(j-1)*nx]);
+    u2[i+j*nx] = (2.0f-4.0f*C2)*u1[i+j*nx] - u0[i+j*nx] + C2*(u1[(i+1)+j*nx]+u1[(i-1)+j*nx] + u1[i+(j+1)*nx]+u1[i+(j-1)*nx]);
   }
 }
 
 __global__ void Wupdate(float *u0,float *u1,float *u2,int nx,int ny){
   int i=blockDim.x*blockIdx.x+threadIdx.x;
   int j=blockDim.y*blockIdx.y+threadIdx.y;
-  if( i>0 && i < nx-1 && j>0 && j < ny-1){
+  if( i < nx-1 && j < ny-1){
     u0[i+j*nx] = u1[i+j*nx];
     u1[i+j*nx] = u2[i+j*nx];
   }
@@ -38,8 +36,8 @@ int main() {
 //set value  
   xmax = 1.0f;
   ymax = 1.0f;
-  nx = 32;
-  ny = 32;
+  nx = 201;
+  ny = 201;
   v = 0.1f;
   dx = xmax/(nx-1);
   dt = 0.035f;
