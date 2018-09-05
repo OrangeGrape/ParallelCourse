@@ -19,7 +19,7 @@ __global__ void Wcalculate(float *u0,float *u1,float *u2,float C2,int nx,int ny)
 __global__ void Wupdate(float *u0,float *u1,float *u2,int nx,int ny){
   int i=blockDim.x*blockIdx.x+threadIdx.x;
   int j=blockDim.y*blockIdx.y+threadIdx.y;
-  if( i < nx-1 && j < ny-1){
+  if( i<nx && j<ny){
     u0[i+j*nx] = u1[i+j*nx];
     u1[i+j*nx] = u2[i+j*nx];
   }
@@ -29,7 +29,7 @@ __global__ void Wupdate(float *u0,float *u1,float *u2,int nx,int ny){
 int main() {
 //allocate parameter
   size_t size;
-  clock_t start, stop;
+  cudaEvent_t start, stop;
   int nx, ny, nt, ix, iy, it, indx;
   float v, dx, dt, C, C2, xmax, ymax, a;
   float *u0_h, *u1_h, *u2_h;
@@ -77,7 +77,10 @@ int main() {
   cudaMemcpy(u2_cu, u2_h, size,cudaMemcpyHostToDevice);
   
 //start wave calculation looping time
-  start = clock();
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+  cudaEventRecord(start,0);
+
   dim3 G(nx/32 +1,ny/32 +1);
   dim3 B(32,32);
 
@@ -87,17 +90,19 @@ int main() {
     // update
     Wupdate<<<G,B>>>(u0_cu, u1_cu, u2_cu, nx, ny);
   }
-  
+    
   cudaMemcpy(u2_h, u2_cu, size,cudaMemcpyDeviceToHost);
   
-  stop = clock();
 //end calculation
 
-  double cpu_time = (double) (stop-start) / CLOCKS_PER_SEC;
-  printf("CPU time = %lf s\n", cpu_time);
+  cudaEventRecord(stop,0);
+  cudaEventSynchronize(stop);
+  float cpu_time;
+  cudaEventElapsedTime(&cpu_time,start,stop);
+  printf("CPU time = %lf s\n", cpu_time*0.001);
 
 // output the final snapshot
-  FILE *file = fopen("u.dat","w");
+  FILE *file = fopen("u_cu.dat","w");
   fwrite(u2_h, sizeof(float), nx*ny, file);
   fclose(file);
 
