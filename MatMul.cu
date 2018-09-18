@@ -64,7 +64,7 @@ int main() {
   cudMemcpy(dA,A,sizeA,cudaMemcpyHostToDevice);
   cudMemcpy(dB,B,sizeB,cudaMemcpyHostToDevice);
   
-  //separate tasks
+  //execution configurtion
   dim3 G(wC/32,hC/32);
   dim3 B(32,32);
   
