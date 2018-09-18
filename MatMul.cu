@@ -1,26 +1,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-
-__global__ void Matmul(float *A,float *B,float *C,int wA,int wB,int hC){
+//kernel
+__global__ void Matmul(float *A,float *B,float *C,int wA,int wC,int hC){
   int i = blockDim.x*blockIdx.x+threadIdx.x;
   int j = blockDim.y*blockIdx.y+threadIdx.y;
   int k;
-  if ( i<wB && j<hC ){
-    for(k=0;k<wA;k++){
-      
-    }
+  float tmp = 0.0f;
+
+  for(k=0;k<wA;k++){
+    tmp += A[i+j*wA] * B[i+j*wB];
   }
+  C[i+j*wC] = tmp;
+
 }
 
-
+//C function
 void init(float *A, int wA, int hA) {
   for (int h=0; h<hA; h++)
     for (int w=0; w<wA; w++)
       A[w+h*wA] = (float)rand() / (float)RAND_MAX;
 }
-void compute(float *A, float *B, float *C,
-             int wA, int hA, int wB) {
+void compute(float *A, float *B, float *C,int wA, int hA, int wB) {
   for (int h=0; h<hA; h++) {
     for (int w=0; w<wB; w++) {
       float temp = 0.0f;
@@ -32,10 +33,10 @@ void compute(float *A, float *B, float *C,
 }
 
 int main() {
-  clock_t start, stop;
+  float cpu_time;
   int w, h, i, iter, max_iter = 10;
-  //int wA = 2, hA = 2, wB = 2, hB = 2;
   int wA = 320, hA = 320, wB = 640, hB = 320;
+  int wC = wB, hC = hA;
   size_t sizeA = wA*hA*sizeof(float);
   size_t sizeB = wB*hB*sizeof(float);
   size_t sizeC = hA*wB*sizeof(float);
@@ -43,13 +44,6 @@ int main() {
   A = (float*) malloc(sizeA);
   B = (float*) malloc(sizeB);
   C = (float*) malloc(sizeC);
-  
-  float *dA =NULL;
-  float *dB =NULL;
-  float *dC =NULL;
-  cudaMalloc((void**)&dA,sizeA);
-  cudaMalloc((void**)&dA,sizeB);
-  cudaMalloc((void**)&dA,sizeC);
   
   // seed random number generator
   srand(time(NULL));
@@ -66,43 +60,52 @@ int main() {
   cudaMalloc((void**)&dA,sizeB);
   cudaMalloc((void**)&dA,sizeC);
   
+  //coppy input value from host to cuda
   cudMemcpy(dA,A,sizeA,cudaMemcpyHostToDevice);
   cudMemcpy(dB,B,sizeB,cudaMemcpyHostToDevice);
   
-  // compute C
+  //separate tasks
+  dim3 G(wC/32,hC/32);
+  dim3 B(32,32);
   
-start = clock();
+  // compute matric C
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
-  cudaEventCreate(&start);
-  Matmul<<<G,B>>>(A,B,C,wB,hA);
-  printf("CPU time = %lf\n", cpu_time);
-
-/*
-  // output A
-  printf("A = \n");
-  for (h=0; h<hA; h++) {
-    for (w=0; w<wA; w++)
-      printf("%5.2f\t", A[w+h*wA]);
-    printf("\n");
+  cudaEventRecord(start,0);
+  for (iter=0; iter<max_iter; iter++){
+    Matmul<<<G,B>>>(A,B,C,wB,hA);
   }
+  cudaEventRecord(stop,0);
+  cudaEventSynchronize(stop);
+  cudaEventElapsedTime(&cpu_time,start,stop);
+  printf("CPU time = %lf s\n", cpu_time*0.001/max_iter);
+  
+  //coppy output value from cuda to host
+  cudMemcpy(C,dC,sizeC,cudaMemcpyDeviceToHost);
 
-  // output B
-  printf("B = \n");
-  for (h=0; h<hB; h++) {
-    for (w=0; w<wB; w++)
-      printf("%5.2f\t", B[w+h*wB]);
-    printf("\n");
+  //result check
+///*
+  float *Check;
+  Check = (float*) malloc(sizeC);
+  compute(A, B, Check, wA, hA, wB);
+  float sum = 0.0f;
+  for (int h=0; h<hC; h++) {
+    for (int w=0; w<wC; w++) {
+      sum += C[w+h*wC]-Check[w+h*wC];
+    }
   }
+  printf("Check result %f (should be zero)", sum);
+  free(Check);
+//*/
+  //free memory
+  free(A);
+  free(B);
+  free(C);
+  
+  cudaFree(dA);
+  cudaFree(dB);
+  cudaFree(dC);
 
-  // output C
-  printf("C = \n");
-  for (h=0; h<hA; h++) {
-    for (w=0; w<wB; w++)
-      printf("%5.2f\t", C[w+h*wB]);
-    printf("\n");
-  }
-*/
   return 0;
 }
