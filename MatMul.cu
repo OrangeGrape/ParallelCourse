@@ -9,7 +9,7 @@ __global__ void Matmul(float *A,float *B,float *C,int wA,int wC,int hC){
   float tmp = 0.0f;
 
   for(k=0;k<wA;k++){
-    tmp += A[i+j*wA] * B[i+j*wB];
+    tmp += A[k+j*wC] * B[i+k*hC];
   }
   C[i+j*wC] = tmp;
 
@@ -34,7 +34,7 @@ void compute(float *A, float *B, float *C,int wA, int hA, int wB) {
 
 int main() {
   float cpu_time;
-  int w, h, i, iter, max_iter = 10;
+  int iter, max_iter = 10;
   int wA = 320, hA = 320, wB = 640, hB = 320;
   int wC = wB, hC = hA;
   size_t sizeA = wA*hA*sizeof(float);
@@ -57,16 +57,16 @@ int main() {
   float *dB =NULL;
   float *dC =NULL;
   cudaMalloc((void**)&dA,sizeA);
-  cudaMalloc((void**)&dA,sizeB);
-  cudaMalloc((void**)&dA,sizeC);
+  cudaMalloc((void**)&dB,sizeB);
+  cudaMalloc((void**)&dC,sizeC);
   
   //coppy input value from host to cuda
-  cudMemcpy(dA,A,sizeA,cudaMemcpyHostToDevice);
-  cudMemcpy(dB,B,sizeB,cudaMemcpyHostToDevice);
+  cudaMemcpy(dA,A,sizeA,cudaMemcpyHostToDevice);
+  cudaMemcpy(dB,B,sizeB,cudaMemcpyHostToDevice);
   
   //execution configurtion
-  dim3 G(wC/32,hC/32);
-  dim3 B(32,32);
+  dim3 dimG(wC/32,hC/32);
+  dim3 dimB(32,32);
   
   // compute matric C
   cudaEvent_t start, stop;
@@ -74,7 +74,7 @@ int main() {
   cudaEventCreate(&stop);
   cudaEventRecord(start,0);
   for (iter=0; iter<max_iter; iter++){
-    Matmul<<<G,B>>>(A,B,C,wB,hA);
+    Matmul<<<dimG,dimB>>>(dA,dB,dC,wA,wC,hC);
   }
   cudaEventRecord(stop,0);
   cudaEventSynchronize(stop);
@@ -82,7 +82,7 @@ int main() {
   printf("CPU time = %lf s\n", cpu_time*0.001/max_iter);
   
   //coppy output value from cuda to host
-  cudMemcpy(C,dC,sizeC,cudaMemcpyDeviceToHost);
+  cudaMemcpy(C,dC,sizeC,cudaMemcpyDeviceToHost);
 
   //result check
 ///*
@@ -92,10 +92,11 @@ int main() {
   float sum = 0.0f;
   for (int h=0; h<hC; h++) {
     for (int w=0; w<wC; w++) {
+      
       sum += C[w+h*wC]-Check[w+h*wC];
     }
   }
-  printf("Check result %f (should be zero)", sum);
+  printf("Check result %f (should be zero)\n", sum/(hC*wC));
   free(Check);
 //*/
   //free memory
