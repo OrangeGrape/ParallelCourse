@@ -38,9 +38,9 @@ float c_summation(float *A, int nA) {
 }
 
 int main() {
-  int order = 20;
+  int order = 10;
   int nA = pow(2,order);
-  printf("nA: %d\n", nA); 
+  printf("Vector size: %d\n", nA); 
   size_t sizeA = nA*sizeof(float);
   float c_sum,pr_sum;
   float *A,*S;
@@ -61,37 +61,34 @@ int main() {
   int G = (nA+B-1)/B;
   int smemSize = B*sizeof(float);
   
-  float cpu_time;
+  float kernel_time;
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
   cudaEventRecord(start,0);
   //////////////////////////// Start time record
   reduce<<<G,B,smemSize>>>(dA,dS);
-  int count = 0;
-  for(int problemsize=nA/B;problemsize >= B;problemsize/=B){
+  for(int problemsize=nA/B;problemsize > 1;problemsize/=B){
     reduce<<<G,B,smemSize>>>(dS,dS);
-    count ++;
   }
-  printf("count: %d\n",count);
   //////////////////////////// Stop time record
   cudaEventRecord(stop,0);
   cudaEventSynchronize(stop);
-  cudaEventElapsedTime(&cpu_time,start,stop);
-  printf("CPU time = %lf s\n", cpu_time*0.001);
+  cudaEventElapsedTime(&kernel_time,start,stop);
+  printf("Kernel time = %lf s\n", kernel_time*0.001);
   
   cudaMemcpy(S,dS,sizeA,cudaMemcpyDeviceToHost);
-  for(int i=0;i<1024;i++){
-    printf("%.2f \t",S[i]);
-  }
-  printf("\n");
-
-  c_sum = c_summation(A,nA);
   pr_sum = S[0]; 
   
+  clock_t begin, end;
+  begin = clock();
+  c_sum = c_summation(A,nA);
+  end = clock();
+  double cpu_time = (double) (end-begin)/ CLOCKS_PER_SEC;
+  printf("CPU time = %lf s\n", cpu_time);
   
-  printf("c function sumresult is: %f \n", c_sum);
-  printf("Parallel reduction sumresult is: %f \n",pr_sum);
+  printf("Parallel reduction sum result is: %f \n",pr_sum);
+  printf("c function sum result is: %f \n", c_sum);
 
   free(A);
   cudaFree(dA);
