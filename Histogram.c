@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <string.h>
 #include <CL/cl.h>
 #define MAX_SOURCE_SIZE (0x100000)
@@ -48,33 +49,33 @@ int main(int argc , char **argv)
 
   cl_platform_id platform;
   status = clGetPlatformIDs(1, &platform , NULL);
-  
+  //check( status ) ;
 
   cl_device_id device;
   status = clGetDeviceIDs ( platform , CL_DEVICE_TYPE_GPU , 1 , &device , NULL) ;
-  
+  //check( status ) ;
 
   cl_context context;
   context = clCreateContext(NULL, 1, &device , NULL, NULL, &status );
-  
+  //check( status ) ;
 
   cl_command_queue cmdQueue;
   cmdQueue = clCreateCommandQueue( context , device , 0, &status ) ;
-  
+  //check( status ) ;
 
   cl_mem bufInputImage ;
   bufInputImage = clCreateBuffer (context , CL_MEM_READ_ONLY, imageSize , NULL, &status);
-  
+  //check( status ) ;
 
   cl_mem bufOutputHistogram ;
   bufOutputHistogram = clCreateBuffer (context , CL_MEM_WRITE_ONLY, histogramSize , NULL, &status ) ;
-  
+  //check( status ) ;
   status = clEnqueueWriteBuffer(cmdQueue, bufInputImage , CL_TRUE,0, imageSize ,hInputImage , 0,NULL,NULL) ;
-  
+  //check( status ) ;
 
   int  zero = 0;
   status = clEnqueueFillBuffer(cmdQueue, bufOutputHistogram , &zero ,sizeof(int) , 0, histogramSize , 0, NULL, NULL) ;
-  
+  //check( status ) ;
 
   //char * programSource = readFile ("histogram.cl") ;
 ///////////////////////////////////////////////////////////////////////////////////
@@ -93,7 +94,7 @@ int main(int argc , char **argv)
 
   size_t programSourceLen = strlen (programSource) ;
   cl_program program = clCreateProgramWithSource(context, 1, (const char**)&programSource, &programSourceLen, &status ) ;
-  
+  //check( status ) ;
 
   status = clBuildProgram( program , 1 , &device , NULL, NULL, NULL) ;
   /*if (status != CL_SUCCESS) {
@@ -103,12 +104,12 @@ int main(int argc , char **argv)
 
   cl_kernel kernel;
   kernel = clCreateKernel(program , "histogram", &status );
-  
+  //check( status ) ;
 
   status = clSetKernelArg(kernel , 0,sizeof(cl_mem) , &bufInputImage) ;
   status |= clSetKernelArg(kernel , 1,sizeof(int) , &imageElements) ;
   status |= clSetKernelArg(kernel , 2,sizeof(cl_mem) , &bufOutputHistogram) ;
-  
+  //check( status ) ;
 
   size_t globalWorkSize [1];
   globalWorkSize [0] = 1024;
@@ -116,11 +117,19 @@ int main(int argc , char **argv)
   size_t localWorkSize [1];
   localWorkSize [0] = 64;
 
+  //start time record
+  clock_t start, end;
+  start = clock();
+
   status = clEnqueueNDRangeKernel(cmdQueue , kernel , 1, NULL,globalWorkSize , localWorkSize , 0, NULL, NULL) ;
-  
+  //check( status ) ;
 
   status = clEnqueueReadBuffer(cmdQueue, bufOutputHistogram ,CL_TRUE , 0 ,histogramSize , hOutputHistogram , 0, NULL, NULL) ;
-  
+  //check( status ) ;
+  //stop time record
+  end = clock();
+  double cpu_time = (double) (end-start) / CLOCKS_PER_SEC;
+  printf("CPU time = %lf\n", cpu_time);
 
   //save output
   FILE *output = fopen("histogram_CL.dat","w");
