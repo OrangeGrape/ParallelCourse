@@ -1,7 +1,7 @@
 #define HIST_BINS 256
 
 __kernel
-void histogram(__global int ∗data ,int numData ,__global int ∗ histogram)
+void histogram(__global int *data ,int numData ,__global int * histogram)
 {
   __local int localHistogram[HIST_BINS];
   int lid = get_local_id (0);
