@@ -4,9 +4,9 @@
 
 
 void main(int argc, char** argv) {
-  int nx = 600;
+  int nx = 1000;
   int i, nxi, nxf;
-  float xi, xmin =-10, xmax = 10, dx = (xmax-xmin)/nx;
+  float xi, xmin = -10, xmax = 10, dx = (xmax-xmin)/nx;
   float fx[nx], sum,tmp;
   //initial
   
@@ -40,23 +40,16 @@ void main(int argc, char** argv) {
 
 //send result to rank 0
   if(rank != 0){
-    MPI_Send (&fx[i], 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
+    MPI_Send (&sum, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
   }else if (rank == 0){
-        source = i/(nx/n +1);
-        MPI_Recv (&data[i][j], 1, MPI_FLOAT, source, 0, MPI_COMM_WORLD, &status);
+    for(source = 1; source < n; source++){
+      MPI_Recv (&tmp, 1, MPI_FLOAT, source, 0, MPI_COMM_WORLD, &status);
+      sum+=tmp;
+    }
   }  
 //save data
   if(rank == 0){
-    file = fopen("MPImandel.ppm","w");
-    fprintf(file, "P2 %d %d 16\n", nx, ny);
-    for(i=0; i < nx; i++) {
-      for(j=0; j < ny; j++) {
-        fprintf(file, "%d \t", data[i][j]);
-      }
-      fprintf(file, "\n");
-    }
-    fprintf(file, "\n");
-    fclose(file);    
+    printf("Integrate result is: %f \n", sum);  
   }
   
   MPI_Finalize();
