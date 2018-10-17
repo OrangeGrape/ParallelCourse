@@ -4,7 +4,7 @@
 
 
 void main(int argc, char** argv) {
-  int nx = 1000;
+  int nx = 100000;
   int i, nxi, nxf;
   float xi, xmin = -10, xmax = 10, dx = (xmax-xmin)/nx;
   float fx[nx], sum,tmp;
@@ -47,7 +47,7 @@ void main(int argc, char** argv) {
       sum+=tmp;
     }
   }  
-//save data
+
   if(rank == 0){
     printf("Integrate result is: %f \n", sum);  
   }
